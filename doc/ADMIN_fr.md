@@ -1,6 +1,6 @@
 ### Connexion
 
-Cette app permet à vos utilisateurs enregistrés dans YunoHost de se connecter avec une [extension LDAP dédiée](https://github.com/tituspijean/flarum-ext-auth-ldap). Par défaut, la méthode de connexion standard est cachée.
+Cette app permet à vos utilisateurs enregistrés dans YunoHost de se connecter avec une [extension LDAP dédiée](https://github.com/Yippy/flarum-ext-auth-ldap). Par défaut, la méthode de connexion standard est cachée.
 Pour permettre à des utilisateurs non-YunoHost de se connecter, référez-vous au menu de configuration de l'extension LDAP dans le panneau d'administration de Flarum.
 
 ### Mise à jour

@@ -85,7 +85,11 @@ fi
 # Perform migrations and clear cache
 pushd $install_dir
 	ynh_script_progression "Upgrading Flarum and its extensions..."
-	ynh_hide_warnings ynh_composer_exec require tituspijean/flarum-ext-auth-ldap:$ldap_version --no-update
+	# tituspijean/flarum-ext-auth-ldap only supports Flarum 1, swap it for the yippy fork before resolving Flarum 2
+	if jq -e '.require["tituspijean/flarum-ext-auth-ldap"]' $install_dir/composer.json >/dev/null 2>&1; then
+		ynh_hide_warnings ynh_composer_exec remove tituspijean/flarum-ext-auth-ldap --no-update
+	fi
+	ynh_hide_warnings ynh_composer_exec require yippy/flarum-ext-auth-ldap:$ldap_version --no-update
 	ynh_hide_warnings ynh_composer_exec require flarum/core:$core_version --prefer-dist --update-no-dev -a --update-with-all-dependencies
 	ynh_exec_as_app php$php_version flarum migrate
 	ynh_exec_as_app php$php_version flarum cache:clear
@@ -97,14 +101,10 @@ ynh_app_setting_set --key=core_version --value="$core_version"
 # FLARUM EXTENSIONS
 #=================================================
 
-if ! ynh_exec_as_app php$php_version flarum info | grep -q "tituspijean-auth-ldap" | grep -q $ldap_version;
-then
-	# Install and activate the LDAP auth extension
-	activate_flarum_extension -d $db_name -s "tituspijean-auth-ldap"
-	# Configure LDAP auth extension
-	ynh_config_add --template="../conf/ldap.sql.template" --destination="../conf/ldap.sql"
-	ynh_mysql_db_shell $db_name < ../conf/ldap.sql
-fi
+# Install and configure the LDAP auth extension (idempotent)
+activate_flarum_extension -d $db_name -s "yippy-auth-ldap"
+ynh_config_add --template="../conf/ldap.sql.template" --destination="../conf/ldap.sql"
+ynh_mysql_db_shell $db_name < ../conf/ldap.sql
 
 # Install, activate and set language extensions
 case $language in

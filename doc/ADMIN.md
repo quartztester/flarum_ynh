@@ -1,6 +1,6 @@
 ## Login
 
-This app allows your YunoHost users to log in with a [dedicated LDAP extension](https://github.com/tituspijean/flarum-ext-auth-ldap). By default, the standard logging method is hidden.
+This app allows your YunoHost users to log in with a [dedicated LDAP extension](https://github.com/Yippy/flarum-ext-auth-ldap). By default, the standard logging method is hidden.
 To allow non-YunoHost users to log in, tune the LDAP extension setting in Flarum's admin panel.
 
 ### Upgrading
