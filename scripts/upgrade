@@ -44,6 +44,12 @@ else
 	ynh_setup_source --dest_dir="$install_dir" --source_id="flarum" --keep="config.php public"
 fi
 
+# Flarum 2 gates JSON SQL dialects by database driver; YunoHost runs MariaDB
+# and upgraded installs keep a 1.x config.php stamped with the generic mysql driver
+if grep -q "'driver' => 'mysql'" "$install_dir/config.php"; then
+	ynh_replace --match="'driver' => 'mysql'" --replace="'driver' => 'mariadb'" --file="$install_dir/config.php"
+fi
+
 #=================================================
 # REAPPLY SYSTEM CONFIGURATIONS
 #=================================================
