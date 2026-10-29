@@ -96,7 +96,16 @@ pushd $install_dir
 		ynh_hide_warnings ynh_composer_exec remove tituspijean/flarum-ext-auth-ldap --no-update
 	fi
 	ynh_hide_warnings ynh_composer_exec require yippy/flarum-ext-auth-ldap:$ldap_version --no-update
-	ynh_hide_warnings ynh_composer_exec require flarum/core:$core_version --prefer-dist --update-no-dev -a --update-with-all-dependencies
+	if [[ "$old_core_version" == 1.* ]] && [[ "$core_version" == 2.* ]]; then
+		# Flarum 1 stamped exact 1.x versions on its bundled extensions and locked
+		# them; release all flarum/* constraints (2.x skeleton uses "*") and force a
+		# full re-resolution, which a core-targeted require does not trigger.
+		jq '.require |= with_entries(if (.key | startswith("flarum/")) then .value = "*" else . end)' $install_dir/composer.json > $install_dir/.composer.json.tmp && cat $install_dir/.composer.json.tmp > $install_dir/composer.json && rm $install_dir/.composer.json.tmp
+		ynh_hide_warnings ynh_composer_exec require flarum/core:$core_version --no-update
+		ynh_hide_warnings ynh_composer_exec update --prefer-dist --no-dev -a
+	else
+		ynh_hide_warnings ynh_composer_exec require flarum/core:$core_version --prefer-dist --update-no-dev -a --update-with-all-dependencies
+	fi
 	ynh_exec_as_app php$php_version flarum migrate
 	ynh_exec_as_app php$php_version flarum cache:clear
 popd
