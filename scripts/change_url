@@ -36,4 +36,9 @@ fi
 # END OF SCRIPT
 #=================================================
 
+# Flarum caches compiled state derived from its base URL
+pushd $install_dir
+	ynh_exec_as_app php$php_version flarum cache:clear
+popd
+
 ynh_script_progression "Change of URL completed for $app"
