@@ -20,13 +20,11 @@ core_version=$(ynh_app_upstream_version)
 #=================================================
 ynh_script_progression "Ensuring downward compatibility..."
 
-# Remove bazaar_extension if it exists
 bazaar_extension=$(ynh_app_setting_get --app=$app --key=bazaar_extension)
 if [ ! -z "$bazaar_extension" ]; then
 	ynh_app_setting_delete --app=$app --key=bazaar_extension
 fi
 
-# Remove SSOwat extension if it exists
 ssowat_extension=$(ynh_app_setting_get --app=$app --key=ssowat_extension)
 if [ ! -z "$ssowat_extension" ]; then
 	ynh_hide_warnings ynh_composer_exec remove tituspijean/flarum-ext-auth-ssowat
@@ -37,15 +35,14 @@ fi
 # DOWNLOAD, CHECK AND UNPACK SOURCE
 #=================================================
 
-# Copy assets from old app version. Can be either in root folder or in "public" folder
+# Old installs keep assets either at root or under "public"
 if [ -d "$install_dir/assets" ]; then
 	ynh_setup_source --dest_dir="$install_dir" --source_id="flarum" --keep="config.php assets public"
 else
 	ynh_setup_source --dest_dir="$install_dir" --source_id="flarum" --keep="config.php public"
 fi
 
-# Flarum 2 gates JSON SQL dialects by database driver; YunoHost runs MariaDB
-# and upgraded installs keep a 1.x config.php stamped with the generic mysql driver
+# 1.x config.php stamps generic 'mysql' driver; Flarum 2 needs 'mariadb' on YunoHost's MariaDB
 if grep -q "'driver' => 'mysql'" "$install_dir/config.php"; then
 	ynh_replace --match="'driver' => 'mysql'" --replace="'driver' => 'mariadb'" --file="$install_dir/config.php"
 fi
@@ -55,13 +52,10 @@ fi
 #=================================================
 ynh_script_progression "Upgrading system configurations related to $app..."
 
-# Create a dedicated php-fpm config
 ynh_config_add_phpfpm
 
-# Create a dedicated NGINX config
 ynh_config_add_nginx
 
-# Use logrotate to manage app-specific logfile(s)
 ynh_config_add_logrotate
 
 #=================================================
@@ -78,28 +72,23 @@ fi
 #=================================================
 ynh_script_progression "Installing composer dependencies..."
 
-# Set right permissions
 chown -R $app:www-data $install_dir
 
 if ynh_app_upgrading_from_version_before 1.1.0~ynh1
 then
-	# Starting 1.0 (implemented for 1.1 in the package), version requirement is "*" for extensions
-	# ... except for flarum/core, but that's handled in the next block.
+	# Since 1.1, extension version requirements must be "*"
 	jq '.require | .[] = "*"' $install_dir/composer.json
 fi
 
-# Perform migrations and clear cache
 pushd $install_dir
 	ynh_script_progression "Upgrading Flarum and its extensions..."
-	# tituspijean/flarum-ext-auth-ldap only supports Flarum 1, swap it for the yippy fork before resolving Flarum 2
+	# tituspijean LDAP fork only supports Flarum 1; swap to yippy fork before resolving Flarum 2
 	if jq -e '.require["tituspijean/flarum-ext-auth-ldap"]' $install_dir/composer.json >/dev/null 2>&1; then
 		ynh_hide_warnings ynh_composer_exec remove tituspijean/flarum-ext-auth-ldap --no-update
 	fi
 	ynh_hide_warnings ynh_composer_exec require yippy/flarum-ext-auth-ldap:$ldap_version --no-update
 	if [[ "$old_core_version" == 1.* ]] && [[ "$core_version" == 2.* ]]; then
-		# Flarum 1 stamped exact 1.x versions on its bundled extensions and locked
-		# them; release all flarum/* constraints (2.x skeleton uses "*") and force a
-		# full re-resolution, which a core-targeted require does not trigger.
+		# Flarum 1 locked bundled extensions at exact 1.x; free all flarum/* constraints and force full re-resolution
 		jq '.require |= with_entries(if (.key | startswith("flarum/")) then .value = "*" else . end)' $install_dir/composer.json > $install_dir/.composer.json.tmp && cat $install_dir/.composer.json.tmp > $install_dir/composer.json && rm $install_dir/.composer.json.tmp
 		ynh_hide_warnings ynh_composer_exec require flarum/core:$core_version --no-update
 		ynh_hide_warnings ynh_composer_exec update --prefer-dist --no-dev -a
@@ -116,12 +105,11 @@ ynh_app_setting_set --key=core_version --value="$core_version"
 # FLARUM EXTENSIONS
 #=================================================
 
-# Install and configure the LDAP auth extension (idempotent)
+# LDAP auth extension setup (idempotent)
 activate_flarum_extension -d $db_name -s "yippy-auth-ldap"
 ynh_config_add --template="../conf/ldap.sql.template" --destination="../conf/ldap.sql"
 ynh_mysql_db_shell $db_name < ../conf/ldap.sql
 
-# Install, activate and set language extensions
 case $language in
 	fr)
 	ynh_script_progression "Installing French extension..."
@@ -145,12 +133,10 @@ ynh_hide_warnings ynh_composer_exec remove kakifrucht/flarum-de:*
 
 ynh_print_info "You may need to manually enable your language extension in Flarum's admin panel."
 
-# Clear cache
 pushd $install_dir
 	ynh_exec_as_app php$php_version flarum cache:clear
 popd
 
-# Set files and directories permissions
 chmod 750 "$install_dir"
 chmod -R o-rwx "$install_dir"
 chown -R $app:www-data "$install_dir"
